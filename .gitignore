@@ -1,6 +1,11 @@
 .claude_session
 .claude
 
+# 신한i인디 계좌 정보 (민감 정보 - 절대 커밋 금지)
+indi_config.json
+holdings_backup_*.json
+reports
+
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
 

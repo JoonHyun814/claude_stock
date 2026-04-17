@@ -3,15 +3,13 @@
     "korean_stocks": [
       {"name": "KB증권",    "ticker": "030200.KS", "quantity": 2},
       {"name": "기아",      "ticker": "000270.KS", "quantity": 2},
-      {"name": "삼성전자",  "ticker": "005930.KS", "quantity": 2},
-      {"name": "삼성화재",  "ticker": "000810.KS", "quantity": 2}
+      {"name": "한국전력",  "ticker": "015760.KS", "quantity": 16},
+      {"name": "현대차",  "ticker": "005380.KS", "quantity": 2}
     ],
     "foreign_stocks": [
-      {"name": "팔란티어",          "ticker": "PLTR",  "quantity": 7},
-      {"name": "엔비디아",          "ticker": "NVDA",  "quantity": 2},
       {"name": "셰브론",            "ticker": "CVX",   "quantity": 1},
-      {"name": "메타",              "ticker": "META",  "quantity": 1},
-      {"name": "버크셔 해서웨이 B", "ticker": "BRK-B", "quantity": 1}
+      {"name": "버크셔 해서웨이 B", "ticker": "BRK-B", "quantity": 4},
+      {"name": "마이크로소프트", "ticker": "MSFT", "quantity": 3}
     ],
     "gold": [
       {"name": "금 현물 (1g)", "unit": "gram", "quantity": 3}
