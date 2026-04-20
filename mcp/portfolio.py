@@ -3,6 +3,7 @@ import io
 import json
 import yfinance as yf
 from datetime import datetime
+from pathlib import Path
 
 # Windows 터미널 UTF-8 출력 설정
 if sys.platform == "win32":
@@ -12,9 +13,13 @@ TROY_OZ_TO_GRAM = 31.1035
 GOLD_TICKER = "GC=F"
 USD_KRW_TICKER = "USDKRW=X"
 
+# mcp/ 안에서 실행하든 루트에서 실행하든 holdings.json을 찾도록
+_DEFAULT_HOLDINGS = Path(__file__).parent.parent / "holdings.json"
 
-def load_holdings(filepath="holdings.json"):
-    with open(filepath, "r", encoding="utf-8") as f:
+
+def load_holdings(filepath=None):
+    path = Path(filepath) if filepath else _DEFAULT_HOLDINGS
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 

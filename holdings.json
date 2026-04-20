@@ -3,7 +3,7 @@
     "korean_stocks": [
       {"name": "KB증권",    "ticker": "030200.KS", "quantity": 2},
       {"name": "기아",      "ticker": "000270.KS", "quantity": 2},
-      {"name": "한국전력",  "ticker": "015760.KS", "quantity": 16},
+      {"name": "한국전력",  "ticker": "015760.KS", "quantity": 10},
       {"name": "현대차",  "ticker": "005380.KS", "quantity": 2}
     ],
     "foreign_stocks": [

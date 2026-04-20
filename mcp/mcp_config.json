@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "stock-info": {
+      "command": "C:\\Users\\joonhyun.lee\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+      "args": [
+        "-X", "utf8",
+        "C:\\Users\\joonhyun.lee\\workspace\\Stock_investment\\mcp\\stock_mcp_server.py"
+      ]
+    }
+  }
+}
