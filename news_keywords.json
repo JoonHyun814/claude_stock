@@ -1,0 +1,96 @@
+{
+  "updated_at": "2026-04-20",
+  "keywords": [
+    {
+      "id": "fed_rate",
+      "category": "거시환경",
+      "priority": "high",
+      "keyword": "연준 금리 인하 2026",
+      "description": "CME FedWatch 기준 4월·9월 2회 인하 전망. 금리 인하 시기 변화는 성장주(MSFT) 밸류에이션에 직접 영향."
+    },
+    {
+      "id": "usd_krw",
+      "category": "거시환경",
+      "priority": "high",
+      "keyword": "달러 원화 환율",
+      "description": "기준 1,474원. 원화 약세 지속 시 달러 자산(미국주식·금) 환차익 발생. 미-한 통상 협상 결과가 변수."
+    },
+    {
+      "id": "wti_oil",
+      "category": "거시환경",
+      "priority": "high",
+      "keyword": "WTI 유가 전망",
+      "description": "기준 $84/배럴. $80 이탈 시 CVX 리스크 재평가 필요. 중동 지정학·EIA 주간 재고 수치 추적."
+    },
+    {
+      "id": "geopolitics_middle_east",
+      "category": "거시환경",
+      "priority": "medium",
+      "keyword": "중동 지정학 호르무즈",
+      "description": "호르무즈 해협 재개통으로 지정학 프리미엄 소멸. 긴장 재고조 시 유가·금 동반 상승 트리거."
+    },
+    {
+      "id": "msft_earnings",
+      "category": "보유종목",
+      "priority": "high",
+      "keyword": "마이크로소프트 실적 Azure AI",
+      "description": "4/29 실적 발표 예정. Azure 성장률 30% 이상 유지 여부, AI Copilot 침투율이 핵심 지표. Beat 시 $430~$440 추가 매수 트리거."
+    },
+    {
+      "id": "brk_b",
+      "category": "보유종목",
+      "priority": "medium",
+      "keyword": "버크셔 해서웨이 Greg Abel 자본배분",
+      "description": "Greg Abel CEO 체제 자본배분 결정 추적. 현금 $373B 운용 방향, Todd Combs 이탈 후 포트폴리오 변화 모니터링. $530 도달 시 차익 실현."
+    },
+    {
+      "id": "hyundai_kia_tariff",
+      "category": "보유종목",
+      "priority": "high",
+      "keyword": "현대차 기아 미국 관세",
+      "description": "관세 15% 인하 확정 후 실질 비용 절감 실적 반영 확인 필요. 1Q26 실적 발표 시 관세 영향 수치 확인."
+    },
+    {
+      "id": "kepco_tariff",
+      "category": "보유종목",
+      "priority": "medium",
+      "keyword": "한국전력 전기요금 인상",
+      "description": "분기 5% 이상 전기요금 인상 확정 뉴스 = 추가 매수 트리거(₩44,000~₩45,000). 부채 200조·배당 재개 여부 연동."
+    },
+    {
+      "id": "cvx_lng",
+      "category": "보유종목",
+      "priority": "medium",
+      "keyword": "셰브론 CVX Wheatstone LNG",
+      "description": "호주 Wheatstone LNG 사이클론 피해 복구 현황 추적. 복구 확인 + WTI $90 회복 시 추가 매수 의미."
+    },
+    {
+      "id": "gold_price",
+      "category": "보유종목",
+      "priority": "medium",
+      "keyword": "금 시세 중앙은행 매입",
+      "description": "ATH $5,595에서 조정 중. JP Morgan $5,055(Q4 2026) 목표. 중앙은행 분기 매입 585톤 지속 여부 확인. 조정 시 1~2g 추가 매수(목표 비중 10~12%)."
+    },
+    {
+      "id": "kt_dividend",
+      "category": "보유종목",
+      "priority": "low",
+      "keyword": "KT 분기배당 주주환원",
+      "description": "분기배당 도입(첫 사례) 안정성 확인. 배당 2,400원/주 지속 여부 및 Physical AI(RaaS) 신사업 진척 추적."
+    },
+    {
+      "id": "ai_datacenter",
+      "category": "섹터트렌드",
+      "priority": "high",
+      "keyword": "AI 데이터센터 클라우드 투자",
+      "description": "Microsoft·Google·Amazon의 AI 인프라 Capex 방향이 MSFT 밸류에이션의 핵심 변수. AI ROI 회의론 확산 여부 모니터링."
+    },
+    {
+      "id": "korea_auto_ev",
+      "category": "섹터트렌드",
+      "priority": "medium",
+      "keyword": "한국 자동차 EV BYD 경쟁",
+      "description": "BYD 등 중국 EV 업체의 글로벌 시장 점유율 확대가 현대차·기아의 중장기 리스크. 미국 현지생산 확대 속도 추적."
+    }
+  ]
+}
