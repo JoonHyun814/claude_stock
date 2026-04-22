@@ -1,0 +1,105 @@
+# 장기 가치투자 종합 분석 프롬프트
+# 사용 MCP: financial-datasets, value-investing-tools, alphavantage, yfinance, macd-analyzer, discord-notifier
+# 사용법: {TICKER} 자리에 분석할 종목 티커를 입력하세요. 예) AAPL, MSFT, 005930.KS
+
+---
+
+{TICKER}에 대한 5개년 장기 안전 투자 분석을 수행하라.
+
+## STEP 1 — 재무제표 수집 및 추세 분석 [financial-datasets MCP]
+
+1-1. `get_income_statement` 으로 최근 4개년 연간 손익계산서를 조회하라 (period=annual, limit=4).
+     - 매출액 성장률(YoY)을 연도별로 직접 계산하라.
+     - 영업이익률·순이익률의 4년 추세가 개선·유지·악화 중인지 판단하라.
+     - EPS가 지속적으로 증가하고 있는지 확인하라.
+
+1-2. `get_balance_sheet` 으로 최근 4개년 연간 대차대조표를 조회하라 (period=annual, limit=4).
+     - ROE(순이익 / 자기자본) 추세를 연도별로 계산하라.
+     - 부채비율(D/E = 총부채 / 자기자본) 추세를 계산하라.
+     - 현금·현금성 자산이 총부채 대비 충분한지(Current Ratio 개념으로) 평가하라.
+
+1-3. `get_cash_flow` 으로 최근 4개년 연간 현금흐름표를 조회하라 (period=annual, limit=4).
+     - 잉여현금흐름(FCF)이 4년 연속 흑자인지 확인하라.
+     - FCF 성장 추세를 계산하라.
+     - 영업현금흐름이 순이익보다 크다면 이익의 질이 높다고 평가하라.
+
+1-4. `get_company_news` 으로 최근 기업 뉴스 5건을 조회하라.
+     - 소송·규제·CEO 교체·대규모 손실 등 장기 투자 리스크 요인이 있는지 확인하라.
+
+---
+
+## STEP 2 — 내재가치 평가 [value-investing-tools MCP]
+
+2-1. `calc_wacc` 으로 현재 무위험수익률(미국 10년 국채, ^TNX 자동 조회) 기반 WACC를 계산하라.
+     - equity_risk_premium=0.055 (5.5%)을 기본값으로 사용하라.
+     - 데이터 품질 플래그가 ❌ 이면 분석을 중단하고 사유를 보고하라.
+     - ⚠️ 플래그는 모두 기록하되 분석은 계속 진행하라.
+
+2-2. `calc_dcf` 으로 DCF 내재가치를 산출하라.
+     - STEP 1-3에서 확인한 FCF 성장 추세를 근거로 growth_rate를 설정하라.
+       · FCF가 지속 성장 중이면 최근 3년 CAGR을, 성장률이 과도하면 최대 15%로 캡핑하라.
+       · FCF가 하락 추세라면 보수적으로 3~5%를 사용하라.
+     - terminal_growth_rate=0.03 (GDP 수준 3%)을 사용하라.
+     - projection_years=10을 사용하라.
+     - 결과로 나온 주당 내재가치와 현재 주가를 비교하라.
+
+2-3. 안전마진(MoS) 판단:
+     - MoS ≥ 40%  → "강력 매수" — 매수 적정가: 현재 주가 그대로 제시
+     - MoS 20~39% → "매수"    — 매수 적정가: 내재가치의 80% 이하
+     - MoS 0~19%  → "보유"    — 매수 적정가: 내재가치의 60% 이하
+     - MoS < 0%   → "과대평가" — 매수 적정가: 내재가치의 60% 이하 (재평가 후 진입)
+
+---
+
+## STEP 3 — 기술적 지표 확인 [alphavantage MCP + macd-analyzer MCP]
+
+3-1. `get_ohlcv` 으로 최근 20개 일봉을 조회하라 (interval=daily, limit=20).
+     - 52주 고저가 대비 현재가 위치를 계산하라 (현재가가 52주 저가에서 얼마나 반등했는지).
+
+3-2. `get_rsi` 으로 14기간 RSI를 조회하라 (interval=daily, time_period=14, limit=5).
+     - RSI < 30: 과매도 → 장기 투자 진입 관점에서 우호적
+     - RSI 30~70: 중립
+     - RSI > 70: 과매수 → 분할 매수 권장
+
+3-3. `get_macd` 으로 일봉 MACD(12,26,9)를 조회하라 (interval=1d, period=6mo, limit=5).
+     - 골든크로스 / 데드크로스 / 상승추세 / 하락추세를 확인하라.
+
+---
+
+## STEP 4 — 현재 시세 및 펀더멘털 확인 [yfinance MCP]
+
+4-1. `get_realtime_price` 으로 현재가와 당일 등락률을 조회하라.
+
+4-2. `get_stock_info` 으로 PER·PBR·베타·배당수익률·섹터를 조회하라.
+     - PER이 동종업계 평균 대비 낮다면 저평가 가능성으로 기록하라.
+     - 배당수익률이 0% 초과이면 배당 지속성을 긍정적 요소로 평가하라.
+
+---
+
+## STEP 5 — 종합 판단 및 Discord 알림 [discord-notifier MCP]
+
+5-1. 아래 형식으로 최종 투자 판단을 작성하라:
+
+```
+[종목] {TICKER}
+[현재가] __ USD
+[내재가치] __ USD  (성장률 가정: _%)
+[안전마진] __%
+[투자 판단] 강력매수 / 매수 / 보유 / 과대평가
+[매수 적정가] __ USD
+[재무 건전성]
+  · ROE 추세: 상승/유지/하락
+  · FCF 4년 연속 흑자: Y/N
+  · 부채비율 추세: 안전/주의/위험
+[기술적 신호]
+  · RSI: __ (과매수/중립/과매도)
+  · MACD: 골든크로스/데드크로스/상승추세/하락추세
+[데이터 플래그]
+  · (⚠️/❌ 항목 나열)
+[결론] (3줄 이내 자유 서술)
+```
+
+5-2. `send_stock_alert` 으로 분석 결과를 Discord에 전송하라.
+     - 매수 판단이면 alert_type="buy", 과대평가면 alert_type="info"를 사용하라.
+     - message에는 내재가치·안전마진·매수 적정가를 포함하라.
+     - price에는 현재 주가를, change_percent에는 당일 등락률을 입력하라.
