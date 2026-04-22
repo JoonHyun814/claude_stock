@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "discord-notifier": {
+      "command": "python",
+      "args": ["tools/discord_mcp.py"]
+    },
+    "alphavantage": {
+      "command": "python",
+      "args": ["tools/alphavantage_mcp.py"]
+    },
+    "yfinance": {
+      "command": "python",
+      "args": ["tools/yfinance_mcp.py"]
+    },
+    "macd-analyzer": {
+      "command": "python",
+      "args": ["tools/macd_mcp.py"]
+    },
+    "financial-datasets": {
+      "command": "python",
+      "args": ["tools/financialdatasets_mcp.py"]
+    },
+    "free-screener": {
+      "command": "python",
+      "args": ["tools/free_screener_mcp.py"]
+    },
+    "value-investing-tools": {
+      "command": "python",
+      "args": ["tools/vit_mcp.py"]
+    },
+    "discord-reader": {
+      "command": "python",
+      "args": ["tools/discord_reader_mcp.py"]
+    }
+  }
+}
