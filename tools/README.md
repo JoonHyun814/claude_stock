@@ -237,6 +237,51 @@ Financial Datasets의 `get_crypto_price`·`screen_stocks` 유료 기능의 무�
 
 ---
 
+### 7. `vit_mcp.py` — Value Investing Tools (VIT)
+
+yfinance 기반 가치투자 분석. **API 키 불필요, 완전 무료.**  
+DCF 모델링·WACC 계산·피어 벤치마킹·데이터 품질 플래그·안전마진 판단.
+
+| Tool | 설명 |
+|------|------|
+| `calc_wacc` | WACC 계산 — CAPM 자기자본비용 + 세후 부채비용. 10Y 국채 수익률 자동 조회 |
+| `calc_dcf` | DCF 내재가치 — FCF 히스토리 → 성장 예측 → 터미널 밸류 → 주당 내재가치 |
+| `peer_benchmark` | 피어 비교 — PER·PBR·ROE·순이익률·배당 등 동종업체 vs 대상 비교 |
+| `value_summary` | 종합 리포트 — WACC+DCF+피어+플래그+안전마진 한 번에 |
+
+**DCF 모델 공식**
+```
+FCF 예측    = Base FCF × (1 + g)^t  (t = 1 ~ N년)
+터미널 밸류 = FCF_N × (1+gT) / (WACC - gT)
+기업가치    = Σ PV(FCF) + PV(TV)
+주당 내재가치 = (기업가치 + 현금 - 부채) / 발행주식수
+```
+
+**WACC 공식**
+```
+Ke (CAPM) = Rf + β × ERP
+Kd (세후) = 이자비용 / 총부채 × (1 - 세율)
+WACC      = Ke × E/(E+D) + Kd × D/(E+D)
+Rf        = 미국 10년 국채 수익률 (^TNX, 자동 조회)
+ERP       = 5.5% (기본값, 변경 가능)
+```
+
+**안전마진(MoS) 판단 기준**
+
+| MoS | 투자 판단 |
+|-----|-----------|
+| ≥ 40% | 강력 매수 |
+| 20~40% | 매수 |
+| 0~20% | 보유 |
+| -20~0% | 과대평가 |
+| < -20% | 심각한 과대평가 |
+
+**데이터 품질 플래그**
+- `❌` FCF 음수 / 자기자본 음수 / 영구성장률 ≥ WACC
+- `⚠️` FCF 하락 추세 / 고베타 / 높은 D/E / 데이터 누락
+
+---
+
 ## 환경변수 요약
 
 | 변수 | 필요 MCP | 비고 |
@@ -247,6 +292,7 @@ Financial Datasets의 `get_crypto_price`·`screen_stocks` 유료 기능의 무�
 | — | yfinance_mcp | 불필요 |
 | — | macd_mcp | 불필요 |
 | — | free_screener_mcp | 불필요 |
+| — | vit_mcp | 불필요 |
 
 `.env.example`을 복사해 `.env`를 생성하세요.
 
