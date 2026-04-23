@@ -1,62 +1,98 @@
 # 장기 가치 투자 분석 프롬프트 (Long-Term Value Investing Analysis)
 
+## 투자 목표
+자산의 50%를 장기(5년+) 우량주·배당성장주 포트폴리오에 배분하여 연 10% 수익을 안정적으로 달성한다.
+
 ## 사용 가능한 MCP 도구
-- **discord_reader**: Discord #holdings 채널에서 보유 종목 읽기
-- **discord**: Discord 웹훅으로 분석 결과 전송
-- **financialdatasets**: 재무제표 (손익계산서, 대차대조표), 시장 뉴스
-- **vit**: DCF 내재가치 계산, WACC, 동종업체 비교
-- **yfinance**: 현재가, OHLCV, 배당 이력
-- **macd**: MACD / RSI 기술적 지표
-- **free_screener**: 종목 스크리너, S&P 500 필터링
-- **alphavantage**: 실시간 시세, 재무 비율
+- **discord-reader**: `get_latest_holding` — #holdings 채널 보유 종목 읽기
+- **discord-notifier**: `send_discord_message`, `send_stock_alert` — 분석 결과 전송
+- **financial-datasets**: `get_income_statement`, `get_balance_sheet`, `get_cash_flow`, `get_company_news`
+- **value-investing-tools**: `calc_dcf`, `calc_wacc`, `peer_benchmark`, `value_summary`
+- **yfinance**: `get_realtime_price`, `get_stock_info`, `get_multi_quote`
+- **macd-analyzer**: `get_macd`, `get_macd_multi`
+- **alphavantage**: `get_rsi`, `get_ohlcv`, `get_market_status`
+- **free-screener**: `screen_stocks`
 
 ---
 
 ## 실행 지침
 
 ### STEP 0 — 보유 종목 불러오기
-discord_reader MCP의 `get_latest_holding` 툴을 호출하여 #holdings 채널의 가장 최근 메시지를 읽어라.
+discord-reader MCP의 `get_latest_holding` 툴을 호출하여 #holdings 채널의 가장 최근 메시지를 읽어라.
 메시지에서 종목명, 수량, 통화(KRW/USD)를 파싱하라.
 분석 대상 종목(티커)이 명시된 경우 해당 종목만 분석하고, 없으면 보유 전체를 분석하라.
 
 ### STEP 1 — 재무 건전성 점검 (5개년)
-financialdatasets MCP를 사용하여 분석 대상 각 종목에 대해:
-1. `get_income_statements` (annual, 5년) → 매출 성장률, 영업이익률, 순이익 추세
-2. `get_balance_sheets` (annual, 5년) → 부채비율(D/E), 유동비율, 자기자본 추세
-3. 아래 기준으로 **재무 헬스 플래그**를 판단하라:
-   - 🟢 양호: ROE ≥ 15%, D/E ≤ 1.0, 매출 CAGR ≥ 5%
-   - 🟡 주의: ROE 10~15% 또는 D/E 1.0~2.0
-   - 🔴 위험: ROE < 10% 또는 D/E > 2.0 또는 순손실 발생
-4. 배당: yfinance MCP의 `get_dividends`로 배당 이력을 확인하고, 10년 이상 지속 여부를 체크하라.
-5. 데이터 결손·이상치(전년 대비 ±50% 이상 변동)가 있으면 "⚠ 데이터 헬스 이슈" 로 명시하라.
+
+**1-A. 기초 스크리닝 (진입 조건)**
+yfinance MCP의 `get_stock_info`를 먼저 호출하여 아래 우량주 기준을 충족하는지 확인하라.
+기준 미달 종목은 "⛔ 우량주 기준 미달"로 표시하되 분석은 계속 진행한다.
+
+| 지표 | 기준 | 비고 |
+|------|------|------|
+| 시가총액 (marketCap) | $100억 이상 | 기관 투자자 유입 및 시장 내성 |
+| 배당 성향 (payoutRatio) | 60% 이하 | 재투자 여력 및 배당 지속성 |
+
+**1-B. 재무제표 분석**
+financial-datasets MCP를 사용하여:
+1. `get_income_statement` (annual, 5년) → 매출 성장률(CAGR), 영업이익률, 순이익 추세
+2. `get_balance_sheet` (annual, 5년) → 부채비율(D/E), 유동비율, 자기자본 추세
+3. `get_cash_flow` (annual, 5년) → 영업CF, FCF 추세
+
+5개년 **추세** 비교 필수: 최근 1년 수치 외에 5년 평균과 비교하여 하락 추세 여부를 판단하라.
+전년 대비 ±50% 이상 이상치는 "⚠ 데이터 이상" 으로 명시하라.
+
+**1-C. 재무 헬스 플래그**
+아래 기준으로 종합 등급을 부여하라:
+- 🟢 양호: ROE ≥ 15%, D/E ≤ 1.0, 매출 CAGR ≥ 5%
+- 🟡 주의: ROE 10~15% 또는 D/E 1.0~2.0
+- 🔴 위험: ROE < 10% 또는 D/E > 2.0 또는 순손실 발생
+
+ROE는 순이익 ÷ 자기자본으로 직접 계산하라 (5년 평균 및 최근치 모두 표시).
+
+**1-D. 배당 이력 및 등급**
+`get_stock_info` 에서 `dividendYield`, `fiveYearAvgDividendYield`, `exDividendDate` 를 확인하라.
+배당 지속 연수를 추정하여 아래 등급을 부여하라:
+- 👑 Dividend King: 50년 이상 연속 배당 증액
+- 🏅 Dividend Aristocrat: 25~49년 연속 증액
+- 🎖 Dividend Achiever: 10~24년 연속 증액
+- ⚪ 일반 배당주: 10년 미만 또는 이력 불명
+- ➖ 무배당: 배당 없음
 
 ### STEP 2 — 내재가치 산출 (DCF / WACC)
-vit MCP를 사용하여:
-1. `calculate_wacc` → 현재 무위험수익률(^TNX 자동 조회) 기반 WACC 계산
-2. `calculate_dcf` → 아래 시나리오 3가지로 DCF 내재가치 산출:
-   - **보수**: FCF 성장률 4%, 영구성장률 2%, 예측기간 10년
+value-investing-tools MCP를 사용하여:
+1. `calc_wacc` → 현재 무위험수익률(^TNX 자동 조회) 기반 WACC 계산
+2. `calc_dcf` → 아래 시나리오 3가지로 DCF 내재가치 산출:
+   - **보수**: FCF 성장률 4%, 영구성장률 = 무위험수익률(^TNX), 예측기간 10년
    - **기본**: FCF 성장률 8%, 영구성장률 3%, 예측기간 10년
    - **낙관**: FCF 성장률 12%, 영구성장률 3.5%, 예측기간 10년
-3. 현재 주가와 각 시나리오 내재가치를 비교하여 안전 마진(Margin of Safety)을 계산하라.
+
+   > 영구성장률(Terminal Growth Rate)은 보수 시나리오에서 ^TNX(무위험수익률)에 고정하여
+   > 비현실적 낙관론을 배제한다. 기본/낙관 시나리오도 ^TNX + 0.5~1.0%p 이하로 제한하라.
+
+3. 현재 주가와 각 시나리오 내재가치를 비교하여 안전 마진(Margin of Safety)을 계산하라:
    - 안전 마진 = (내재가치 - 현재가) / 내재가치 × 100
    - **매수 적정**: 기본 시나리오 안전 마진 ≥ 20%
    - **관망**: 0% ≤ 안전 마진 < 20%
    - **고평가**: 안전 마진 < 0%
-4. `compare_peers` → 동종업계 2~4개 종목과 PER, PBR, EV/EBITDA 비교
+
+4. `peer_benchmark` → 동종업계 2~4개 종목과 PER, PBR, EV/EBITDA 비교
 
 ### STEP 3 — 기술적 신호 확인
-macd MCP의 `get_macd_signal`을 호출하여:
-- MACD 히스토그램 방향 (상승/하락 추세)
-- RSI 과매수(>70) / 과매도(<30) 여부
+- macd-analyzer MCP의 `get_macd`를 호출하여:
+  - MACD 히스토그램 방향 (골든크로스 / 데드크로스 / 상승추세 / 하락추세)
+- alphavantage MCP의 `get_rsi`를 호출하여:
+  - RSI 과매수(>70) / 중립(30~70) / 과매도(<30) 판단
 - 신호 요약: "기술적 매수 신호", "중립", "기술적 매도 신호" 중 하나로 판단
 
 ### STEP 4 — 최신 뉴스 및 시장 심리
-financialdatasets MCP의 `get_stock_news`로 해당 종목 최신 뉴스 5건을 조회하라.
+financial-datasets MCP의 `get_company_news`로 해당 종목 최신 뉴스 5건을 조회하라.
 각 뉴스의 sentiment를 파악하여 시장 심리를 "긍정적 / 중립 / 부정적"으로 요약하라.
 
 ### STEP 5 — 종합 판단 및 Discord 전송
 아래 형식으로 **종목별 투자 의견 카드**를 작성한 뒤,
-discord MCP의 `send_embed`로 Discord에 전송하라 (색상: 매수=녹색 0x00b050, 관망=노란색 0xffc000, 고평가=빨간색 0xe74c3c).
+discord-notifier MCP의 `send_stock_alert`로 Discord에 전송하라
+(색상: 매수=녹색 0x00b050, 관망=노란색 0xffc000, 고평가=빨간색 0xe74c3c).
 
 ```
 ──────────────────────────────────
@@ -68,17 +104,19 @@ discord MCP의 `send_embed`로 Discord에 전송하라 (색상: 매수=녹색 0x
 투자 의견:   ★ 매수 적정 / 관망 / 고평가
 
 📈 재무 건전성
-  ROE:         XX%  [🟢/🟡/🔴]
-  D/E:         X.X  [🟢/🟡/🔴]
-  매출 CAGR:   XX%
-  배당 연속:   XX년
+  시가총액:   $XXX (우량주 기준 충족 여부)
+  ROE:        XX% (5년 평균 XX%)  [🟢/🟡/🔴]
+  D/E:        X.X  [🟢/🟡/🔴]
+  매출 CAGR:  XX%
+  배당 등급:  👑/🏅/🎖/⚪/➖ [Dividend King/Aristocrat/Achiever/일반/무배당]
+  배당 성향:  XX% [지속가능 ✓ / 주의 ⚠]
 
 💰 밸류에이션 (동종업체 비교)
   PER:   XX배 (업종 평균 XX배)
   PBR:   XX배 (업종 평균 XX배)
 
 📉 기술적 신호
-  MACD:  [상승/하락 추세]
+  MACD:  [골든크로스/데드크로스/상승/하락 추세]
   RSI:   XX ([과매수/중립/과매도])
   신호:  [기술적 매수/중립/매도]
 
@@ -88,27 +126,17 @@ discord MCP의 `send_embed`로 Discord에 전송하라 (색상: 매수=녹색 0x
 ──────────────────────────────────
 ```
 
----
-
-## 실행 예시 (단일 종목)
-
-"MSFT(마이크로소프트)에 대한 5개년 장기 가치 투자 분석을 수행하라.
-STEP 1~5의 순서대로 financialdatasets, vit, macd, free_screener MCP를 활용하여
-재무 건전성, DCF 내재가치(보수/기본/낙관 3시나리오), 기술적 신호, 뉴스 심리를 분석하고
-결과를 Discord embed로 전송하라."
-
-## 실행 예시 (보유 전체)
-
-"discord_reader MCP로 #holdings 채널 최신 메시지를 읽어 보유 종목 목록을 파악하라.
-각 종목에 대해 STEP 1~5를 순서대로 수행하고,
-마지막에 포트폴리오 전체 요약 (총 추정 가치, 종목별 투자 의견 분포)을
-Discord에 별도 embed로 전송하라."
+포트폴리오 전체 분석이 끝난 후, `send_discord_message`로 **포트폴리오 요약 메시지**를 별도 전송하라:
+- 분석 종목 수, 매수 적정 / 관망 / 고평가 분포
+- 가장 높은 안전 마진 종목 (TOP 1)
+- 우량주 기준 미달 종목 목록
 
 ---
 
 ## 주의 사항
-- KRW 종목(예: 138040.KS, 005930.KS)은 financialdatasets에서 지원되지 않을 수 있다.
-  그 경우 yfinance의 `get_financials`로 대체하고 "financialdatasets 미지원 종목" 으로 표시하라.
-- 금(GC=F) 보유분은 DCF 분석 대상에서 제외하고, 현재 시세(USD/g)와 보유량만 표시하라.
+- KRW 종목(예: 138040.KS, 005930.KS)은 financial-datasets에서 지원되지 않을 수 있다.
+  그 경우 yfinance의 `get_stock_info`로 대체하고 "financial-datasets 미지원" 으로 표시하라.
+- 금(GC=F) 보유분은 DCF 분석 대상에서 제외하고, 현재 시세(USD/oz)와 보유량만 표시하라.
 - ADR 종목(예: KB — KB금융 NYSE ADR)은 원주 종목(티커 .KS)과 중복 분석하지 말고 하나만 분석하라.
 - 데이터 취득 실패 시 해당 항목을 "N/A"로 표시하고 분석을 계속 진행하라.
+- 각 종목 분석 시작 시 `send_discord_message`로 "[종목] 분석 중..." 진행 상황을 전송하라.
