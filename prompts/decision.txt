@@ -1,0 +1,135 @@
+# 통합 투자 결정 프롬프트 (Long + Short → Final Decision + New Picks)
+
+## 도구
+WebSearch(내장) · discord-reader · discord-notifier · yfinance · alphavantage · macd-analyzer · financial-datasets · value-investing-tools · free-screener
+
+---
+
+## STEP 0 — 환경 파악 (병렬 수행)
+
+다음 3가지를 동시에 수행하라:
+
+**A. 거시 뉴스** (최근 3일 이내만)
+- WebSearch: `"stock market economic news last 3 days"`
+- WebSearch: `"geopolitical risk Fed inflation trade news"`
+- 시장 심리를 🟢 위험선호 / 🟡 중립 / 🔴 위험회피 로 한 줄 요약
+
+**B. 시장 지표**
+- yfinance `get_multi_quote`: ["SPY", "QQQ", "TLT", "GLD", "VXX"]
+- alphavantage `get_commodity_price`: WTI, GOLD
+
+**C. 보유 종목 + 종목 뉴스**
+- discord-reader `get_latest_holding` → 티커 목록 파싱
+- 각 티커: WebSearch `"[종목명] stock news last 3 days"` + `get_company_news`(limit=3, 3일 이내만)
+
+결과를 Discord에 전송:
+```
+🌐 [거시심리 이모지] [심리 한 줄] | SPY X.X% QQQ X.X% VXX X.X% | WTI $XX GOLD $X,XXX
+📰 보유 종목 주요 이슈: [종목별 헤드라인 요약]
+```
+
+---
+
+## STEP 1 — 보유 종목 최종 판단
+
+각 종목에 대해 장기·단기 신호를 모두 확인한 뒤 **액션 하나**를 결정하라.
+
+**장기 신호** (value-investing-tools + financial-datasets)
+- tactics/long.md 참고
+- `calc_wacc` → `calc_dcf` (기본 시나리오): 안전마진 = (내재가치 - 현재가) / 내재가치 × 100
+- `get_income_statement` / `get_balance_sheet` 실패 시 yfinance `get_financials` 대체
+- KRW 종목은 처음부터 yfinance `get_financials` 사용
+
+**단기 신호** (alphavantage + macd-analyzer + yfinance)
+- tactics/short.md 참고
+- `get_rsi` (daily, 14): 과매도(<30) / 중립 / 과매수(>70)
+- `get_macd`: 골든크로스🟢 / 데드크로스🔴 / 추세방향
+- `get_stock_info`: 현재가 vs 200일SMA
+
+**최종 액션 결정 매트릭스**
+
+| 장기(안전마진) | 단기(RSI+MACD) | 액션 |
+|---|---|---|
+| ≥ 20% (저평가) | 매수신호 | ✅ **적극 보유 / 추가 매수** |
+| ≥ 20% (저평가) | 중립 | 🔵 **보유 유지** |
+| ≥ 20% (저평가) | 매도신호 | ⏸ **보유 유지, 단기 주의** |
+| 0~20% (적정) | 매수신호 | 🔵 **보유 유지** |
+| 0~20% (적정) | 중립/매도 | ⚠️ **비중 축소 검토** |
+| < 0% (고평가) | 매도신호 | 🔴 **매도 / 익절** |
+| < 0% (고평가) | 매수신호 | ⚠️ **보유 유지, 목표가 재검토** |
+
+거시심리 🔴일 경우: 전 종목 액션을 한 단계 보수적으로 조정 (보유→축소, 추가매수→보유 등)
+
+종목별 카드를 `send_stock_alert`로 전송 (저평가=녹색, 적정=노란색, 고평가=빨간색):
+```
+[액션이모지] [종목명]([티커])  현재가: $XXX
+  장기: 안전마진 XX%  ROE XX%  D/E X.X
+  단기: RSI XX [상태] | MACD [신호]
+  뉴스: [3일 이내 헤드라인 1개 또는 "이슈 없음"]
+  → 액션: [최종 결정]
+```
+
+---
+
+## STEP 2 — 신규 종목 추천 (국외 2 + 국내 2)
+
+**테마 도출**
+STEP 0 거시 뉴스 + 시장 지표에서 강세 테마 1~2개를 선정하라.
+- yfinance `get_multi_quote`: ["XLK", "XLE", "XLV", "XLF"] → 강세 섹터 확인
+- WebSearch: `"best stocks to buy [강세테마] last 3 days"` → 언급 종목 추출
+
+**국외 후보 스크리닝** (free-screener `screen_stocks`)
+```json
+filters: [
+  {"field": "marketCap",      "operator": "gt", "value": 10000000000},
+  {"field": "returnOnEquity", "operator": "gt", "value": 0.12},
+  {"field": "revenueGrowth",  "operator": "gt", "value": 0.05},
+  {"field": "debtToEquity",   "operator": "lt", "value": 2.0}
+]
+scan_limit: 150, result_limit: 8, sort_by: "earningsGrowth"
+```
+→ 결과 중 테마 부합 + 기보유 아닌 종목 상위 2개 선정
+→ 선정 종목: `get_rsi` + `get_macd` 로 모멘텀 확인 (과매수 종목 제외)
+
+**국내 후보** (테마 기반 수동 구성 후 검증)
+테마에 맞는 한국 대표주 3~4개를 선정하고 yfinance `get_stock_info`로 검증:
+- 시가총액 $10억 이상, 기보유 종목 제외
+- `get_macd` 상승추세 종목 우선
+→ 최종 2종목 선정
+
+**추천 카드** `send_stock_alert`로 전송 (강력추천=녹색, 관심=노란색):
+```
+🌟 신규추천 [종목명]([티커]) — [테마]
+  현재가: $XXX  시총: $XXX  ROE: XX%
+  MACD: [신호] | RSI: XX
+  근거: [테마·뉴스 기반 한 줄]
+  리스크: [한 줄]
+```
+
+---
+
+## STEP 3 — 최종 요약 Discord 전송
+
+`send_discord_message`로 전송:
+```
+📋 투자 결정 요약
+거시심리: [🟢/🟡/🔴]  주요이슈: [한 줄]
+
+📊 보유 종목
+  ✅ 추가매수: [티커 목록]
+  🔵 보유유지: [티커 목록]
+  ⚠️ 축소검토: [티커 목록]
+  🔴 매도:     [티커 목록]
+
+🌟 신규 추천
+  국외: [티커] ([테마]), [티커] ([테마])
+  국내: [티커] ([테마]), [티커] ([테마])
+```
+
+---
+
+## 주의
+- 데이터 취득 실패 시 "N/A" 표시 후 계속 진행
+- 금(GC=F)은 DCF 제외, 현재 시세만 표시
+- ADR·원주 중복 분석 금지 (하나만 선택)
+- alphavantage MACD는 유료 전용 → 항상 macd-analyzer 사용

@@ -1,0 +1,220 @@
+# 신규 종목 발굴 프롬프트 (News-Driven Stock Discovery)
+
+## 목표
+최신 경제·사회·정치 뉴스에서 투자 테마를 도출하고,
+테마에 부합하는 **국외 3종목 + 국내 3종목**을 발굴하여 Discord로 추천한다.
+
+## 사용 가능한 MCP 도구
+- **WebSearch** (내장) — Google 검색으로 최신 경제·사회·정치 뉴스 및 투자 테마 수집
+- **discord-reader**: `get_latest_holding` — 기보유 종목 확인 (중복 추천 방지)
+- **discord-notifier**: `send_discord_message`, `send_stock_alert` — 추천 결과 전송
+- **financial-datasets**: `get_company_news`, `get_income_statement`, `get_balance_sheet`
+- **free-screener**: `screen_stocks` — S&P 500 / NASDAQ 100 펀더멘털 스크리닝
+- **yfinance**: `get_stock_info`, `get_multi_quote`, `get_financials`, `get_realtime_price`
+- **macd-analyzer**: `get_macd`
+- **alphavantage**: `get_rsi`, `get_commodity_price`, `get_market_status`
+- **value-investing-tools**: `calc_dcf`, `calc_wacc`
+
+---
+
+## 실행 지침
+
+### STEP 0 — 거시 환경 및 기보유 종목 파악
+
+**0-A. 거시 뉴스 및 시장 스냅샷**
+아래 순서로 수집하여 투자 테마 도출의 근거로 활용하라.
+
+1. **Google 검색 (WebSearch)** — 아래 4개 쿼리를 순서대로 검색하라 (**최근 3일 이내** 뉴스만 참고하라):
+   - `"stock market investment theme trend last 3 days"` — 현재 주목받는 투자 테마
+   - `"economic policy Fed inflation trade tariff news"` — 거시경제·통화정책
+   - `"geopolitical risk defense energy sector news"` — 지정학·방산·에너지
+   - `"Korea KOSPI 한국 증시 주도 업종 뉴스"` — 국내 시장 동향 및 주도 섹터
+   각 결과에서 **발행일이 3일 이내**인 기사만 참고하여 반복 등장하는 **키워드·산업·정책** 을 추출하라.
+   오래된 뉴스는 무시하라.
+
+2. **시장 지표** — yfinance `get_multi_quote` 호출 (tickers: ["SPY", "QQQ", "IWM", "TLT", "GLD", "VXX", "XLE", "XLK", "XLV", "XLF"]):
+   - 섹터 ETF(XLE=에너지, XLK=기술, XLV=헬스케어, XLF=금융)의 등락으로 **강세 섹터**를 확인하라.
+
+3. **원자재** — alphavantage `get_commodity_price` 호출 (WTI, GOLD, COPPER):
+   - 구리 상승 → 인프라·전기차·제조 수요 강세
+   - 금 상승 → 안전자산 선호, 달러 약세
+   - WTI 상승 → 에너지·정유 수혜
+
+4. **뉴스 보완** — financial-datasets `get_company_news` 호출 (ticker="SPY", limit=5):
+   - Google 검색에서 파악하지 못한 종목·섹터 이슈를 보완하라.
+
+수집 완료 후 Discord에 `send_discord_message`로 아래 형식 전송:
+```
+🌐 거시 환경 스냅샷
+  강세 섹터: [XLK +X.X% / XLE +X.X% / ...]
+  WTI: $XX.X | GOLD: $X,XXX | COPPER: $X.XX
+  시장 심리: 🟢/🟡/🔴
+  주요 뉴스 키워드: [Google 검색 기반 — AI 인프라 / 금리 인하 / 방산 / 친환경 에너지 / ...]
+  국내 동향: [Google 검색 기반 — 코스피 주도 업종 한 줄]
+```
+
+**0-B. 기보유 종목 확인 및 종목별 뉴스 수집**
+discord-reader MCP의 `get_latest_holding`을 호출하여 현재 보유 종목 목록을 파악하라.
+이후 추천 종목은 **기보유 종목과 중복되지 않도록** 한다.
+
+기보유 종목 목록이 확정되면 각 종목에 대해 아래 2가지를 수집하라 (**최근 3일 이내** 뉴스만):
+1. **WebSearch** — `"[종목명] stock news last 3 days"` 쿼리로 검색하여 주요 헤드라인 1~2개 추출
+2. **financial-datasets `get_company_news`** — 해당 티커로 호출 (limit=3), 날짜가 3일 이내인 것만 사용
+
+수집한 뉴스에서 기보유 종목에 **긍정적 촉매**(실적 서프라이즈·신제품·계약)가 있으면 STEP 1 테마 도출 시 관련 섹터 가중치를 높여라.
+**부정적 이슈**(소송·규제·실적 쇼크)가 있으면 해당 섹터 신규 추천을 보수적으로 검토하라.
+
+---
+
+### STEP 1 — 투자 테마 도출
+
+STEP 0의 뉴스·시장 데이터를 종합하여 **상위 2~3개 투자 테마**를 선정하라.
+
+테마 선정 기준:
+- 뉴스에서 3회 이상 언급된 키워드·산업
+- 섹터 ETF 수익률 상위 (당일 기준)
+- 정책·규제·지정학 변화로 수혜가 예상되는 산업
+
+테마 예시 (현재 뉴스에 맞게 실제 테마로 교체하라):
+- AI 인프라·데이터센터 수요 급증
+- 방산·국방 지출 확대 (지정학 리스크)
+- 친환경 에너지 전환·IRA 수혜
+- 금리 인하 수혜 (리츠·배당주)
+- 고령화·바이오테크 성장
+- 관세 수혜 국내 제조·소재
+
+선정된 테마를 Discord에 `send_discord_message`로 전송:
+```
+💡 선정 투자 테마
+  1위: [테마명] — [근거 한 줄]
+  2위: [테마명] — [근거 한 줄]
+  3위: [테마명] — [근거 한 줄]
+```
+
+---
+
+### STEP 2 — 국외 종목 스크리닝 (미국, 목표 3종목)
+
+**2-A. 펀더멘털 스크리닝**
+free-screener MCP의 `screen_stocks`를 선정 테마에 맞는 섹터 조건으로 호출하라.
+기본 품질 필터는 아래를 유지하고, 테마별 추가 조건을 적용하라.
+
+기본 필터 (모든 테마 공통):
+```json
+[
+  {"field": "marketCap",      "operator": "gt", "value": 10000000000},
+  {"field": "returnOnEquity", "operator": "gt", "value": 0.12},
+  {"field": "debtToEquity",   "operator": "lt", "value": 2.0},
+  {"field": "revenueGrowth",  "operator": "gt", "value": 0.05}
+]
+```
+
+테마별 추가 필터 예시 (실제 테마에 맞게 조정):
+- AI/기술 테마: `earningsGrowth gt 0.15`, `universe=nasdaq100`
+- 배당/금리 테마: `dividendYield gt 0.02`, `priceToBook lt 3.0`
+- 에너지 테마: `profitMargins gt 0.08`, `universe=sp500`
+
+`scan_limit=200`, `result_limit=10`, `sort_by=earningsGrowth`로 호출하라.
+
+**2-B. 후보 압축**
+스크리닝 결과 10종목 중 아래 기준으로 **상위 5종목**을 선별하라:
+- 기보유 종목 제외
+- 테마와 섹터·산업이 직접 연관된 종목 우선
+- 52주 최저가 대비 현재가 위치 확인 (`get_stock_info` yearLow/yearHigh)
+
+**2-C. 최종 3종목 선정**
+상위 5종목에 대해 아래를 확인하고 최종 3종목을 선정하라:
+1. `get_stock_info` → PER, PBR, 배당수익률, 200일 SMA 대비 현재가
+2. `get_macd` → 모멘텀 방향 (상승추세 우선)
+3. `get_rsi` → RSI 30~60 구간 우선 (과매수 제외)
+4. `get_company_news` (limit=3) → 최근 부정 이슈 없는지 확인
+
+---
+
+### STEP 3 — 국내 종목 발굴 (한국, 목표 3종목)
+
+한국 주식 스크리너가 없으므로 **테마 기반 후보 리스트를 직접 구성**한 뒤 검증한다.
+
+**3-A. 테마별 한국 대표 종목 후보 구성**
+STEP 1에서 선정한 테마를 기반으로 아래 기준으로 한국 후보 5~6종목을 선정하라:
+
+테마-섹터 매핑 참고 (실제 테마에 맞게 조정):
+```
+AI/반도체      → 삼성전자(005930.KS), SK하이닉스(000660.KS), 한미반도체(042700.KS)
+방산           → 한화에어로스페이스(012450.KS), 현대로템(064350.KS), LIG넥스원(079550.KS)
+2차전지/전기차  → LG에너지솔루션(373220.KS), 삼성SDI(006400.KS), 에코프로비엠(247540.KQ)
+바이오/헬스케어 → 셀트리온(068270.KS), 삼성바이오로직스(207940.KS), 유한양행(000100.KS)
+친환경/에너지   → 한화솔루션(009830.KS), OCI홀딩스(010060.KS), 씨에스윈드(112610.KS)
+금융/배당       → KB금융(105560.KS), 신한지주(055550.KS), 하나금융지주(086790.KS)
+소재/화학       → POSCO홀딩스(005490.KS), LG화학(051910.KS), 롯데케미칼(011170.KS)
+```
+
+**3-B. 후보 검증**
+5~6 후보 종목에 대해 yfinance MCP로 확인하라:
+1. `get_stock_info` → 시가총액($10억 이상), PER, PBR, 배당수익률
+2. `get_financials` → 최근 매출 성장 여부, ROE 확인
+3. `get_macd` → 모멘텀 방향
+4. 기보유 종목 제외
+
+**3-C. 최종 3종목 선정**
+위 검증 결과를 바탕으로 펀더멘털 + 모멘텀이 가장 좋은 3종목을 선정하라.
+
+---
+
+### STEP 4 — 추천 카드 작성 및 Discord 전송
+
+종목별 추천 카드를 discord-notifier MCP의 `send_stock_alert`로 전송하라.
+(색상: 강력 추천=녹색 0x00b050, 관심 종목=노란색 0xffc000)
+
+```
+──────────────────────────────────
+🌟 신규 추천 — [종목명] ([티커])
+테마: [AI 인프라 / 방산 / 친환경에너지 / ...]
+──────────────────────────────────
+현재가:      $XXX.XX / ₩XX,XXX
+시가총액:    $XXX / X조원
+200일 SMA:   [위 ✓ / 아래 ✗]
+
+📈 핵심 지표
+  PER:        XX배  |  PBR: X.X배
+  ROE:        XX%   |  매출 성장: +XX%
+  배당수익률: X.X%
+
+📉 기술적 신호
+  MACD:  [상승추세 🟢 / 하락추세 🔴]
+  RSI:   XX  [중립/과매도 탈출 🟢]
+
+💡 추천 근거
+  [뉴스·테마 기반 한 두 문장 설명]
+
+⚠ 주요 리스크
+  [밸류에이션 부담 / 규제 리스크 / 실적 불확실성 등]
+──────────────────────────────────
+```
+
+6종목 카드를 모두 전송한 후, `send_discord_message`로 **종합 요약**을 전송하라:
+
+```
+📋 신규 종목 추천 요약 ([날짜])
+
+🌍 국외 추천 (미국)
+  1. [티커] — [테마] — [한 줄 요약]
+  2. [티커] — [테마] — [한 줄 요약]
+  3. [티커] — [테마] — [한 줄 요약]
+
+🇰🇷 국내 추천
+  1. [티커] — [테마] — [한 줄 요약]
+  2. [티커] — [테마] — [한 줄 요약]
+  3. [티커] — [테마] — [한 줄 요약]
+
+💬 시장 코멘트: [전반적 투자 환경 한 줄 평]
+```
+
+---
+
+## 주의 사항
+- 기보유 종목과 중복되는 종목은 추천하지 말고 다음 후보로 대체하라.
+- `screen_stocks`는 S&P 500 / NASDAQ 100 종목만 스캔한다. 중소형주 테마는 수동으로 후보를 구성하라.
+- 한국 주식은 yfinance `.KS`(코스피) / `.KQ`(코스닥) 접미사를 반드시 사용하라.
+- `get_financials` 오류 시 `get_stock_info`의 trailingPE, returnOnEquity로 대체하라.
+- 데이터 취득 실패한 지표는 "N/A"로 표시하고 다른 지표로 판단하라.

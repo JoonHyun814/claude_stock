@@ -53,12 +53,30 @@ FINANCIAL_DATASETS_API_KEY
 
 ## 프롬프트 실행
 
-### 장기투자 분석
+### 장기투자 분석 (`prompts/long.txt`)
 ```bash
 python run_claude.py --prompt prompts/long.txt
 ```
-Claude가 Discord #holdings에서 보유 종목을 읽고,
-재무 건전성·DCF 내재가치·기술적 신호·뉴스 심리를 분석한 뒤 Discord로 전송하고 종료한다.
+Discord #holdings 보유 종목 → 재무 건전성(5개년) · DCF 내재가치 · 기술적 신호 · 뉴스 심리 분석 → Discord 전송.
+
+### 통합 결정 (`prompts/decision.txt`) ← 핵심 실행 프롬프트
+```bash
+python run_claude.py --prompt prompts/decision.txt
+```
+거시 환경 파악 → 보유 종목별 장기(DCF)+단기(RSI/MACD) 통합 판단으로 액션 결정 → 신규 종목 국외 2+국내 2 추천 → Discord 요약. long.txt + short.txt + new.txt를 하나로 압축한 버전.
+
+### 신규 종목 발굴 (`prompts/new.txt`)
+```bash
+python run_claude.py --prompt prompts/new.txt
+```
+뉴스·섹터 ETF에서 투자 테마 도출 → S&P 500/NASDAQ 스크리닝으로 국외 3종목 + 테마 기반 국내 3종목 발굴 → Discord 추천.
+
+### 단기 모멘텀 매매 (`prompts/short.txt`)
+```bash
+python run_claude.py --prompt prompts/short.txt
+```
+Discord #holdings 미국 주식 → 200일 SMA 추세 필터 · RSI 과매도 탈출 · MACD 골든크로스 스캔
+→ 손절/익절/포지션 사이징 계산 → 매매 신호 Discord 전송. 월 3% 수익 목표.
 
 ### MCP 통합 테스트
 ```bash

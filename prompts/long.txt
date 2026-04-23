@@ -4,6 +4,7 @@
 자산의 50%를 장기(5년+) 우량주·배당성장주 포트폴리오에 배분하여 연 10% 수익을 안정적으로 달성한다.
 
 ## 사용 가능한 MCP 도구
+- **WebSearch** (내장) — Google 검색으로 최신 뉴스·정책·지정학 이슈 수집
 - **discord-reader**: `get_latest_holding` — #holdings 채널 보유 종목 읽기
 - **discord-notifier**: `send_discord_message`, `send_stock_alert` — 분석 결과 전송
 - **financial-datasets**: `get_income_statement`, `get_balance_sheet`, `get_cash_flow`, `get_company_news`
@@ -17,10 +18,54 @@
 
 ## 실행 지침
 
-### STEP 0 — 보유 종목 불러오기
+### STEP 0 — 거시 환경 파악 및 보유 종목 불러오기
+
+**0-A. 거시 경제·뉴스 컨텍스트 수집**
+아래 순서대로 수집하여 이후 모든 종목 분석의 배경 맥락으로 활용하라.
+
+1. **Google 검색 (WebSearch)** — 아래 3개 쿼리를 순서대로 검색하라 (**최근 3일 이내** 뉴스만 참고하라):
+   - `"stock market economic news last 3 days"` — 미국 시장·경제 동향
+   - `"Fed interest rate inflation CPI jobs report"` — 통화정책·거시 지표
+   - `"global geopolitical risk trade tariff sanctions"` — 지정학·정치 리스크
+   각 검색 결과에서 **발행일이 3일 이내**인 기사의 핵심 헤드라인 2~3개씩 추출하라.
+   3일을 초과한 오래된 뉴스는 무시하라.
+
+2. **시장 지표 스냅샷** — yfinance `get_multi_quote` 호출 (tickers: ["SPY", "QQQ", "TLT", "GLD", "VXX"]):
+   - SPY/QQQ: 미국 주식시장 전반 방향성
+   - TLT: 장기 국채 (상승 = 금리 하락 기대 / 위험 회피)
+   - GLD: 금 (상승 = 지정학 리스크 / 달러 약세)
+   - VXX: 변동성 (급등 +5% 이상 = 공포 구간)
+
+3. **원자재** — alphavantage `get_commodity_price` 호출:
+   - WTI (에너지 비용·인플레이션 압력 지표)
+   - GOLD (안전자산 수요·달러 강도 지표)
+
+4. **종목별 뉴스 보완** — financial-datasets `get_company_news` 호출 (ticker="SPY", limit=5):
+   - Google 검색에서 파악하지 못한 최신 시장 뉴스를 보완하라.
+
+수집 결과를 아래 형식으로 정리하여 분석 시작 전 Discord에 `send_discord_message`로 전송하라:
+```
+🌐 거시 환경 스냅샷
+  SPY: +X.X% | QQQ: +X.X% | TLT: +X.X% | GLD: +X.X% | VXX: +X.X%
+  WTI: $XX.X | GOLD: $X,XXX
+  시장 심리: 🟢/🟡/🔴 [한 줄 요약]
+  주요 이슈: [Google 검색 기반 핵심 헤드라인 2~3개]
+```
+
+> 거시 심리가 🔴 위험 회피일 경우: DCF 보수 시나리오에 더 높은 가중치를 두고,
+> 안전 마진 기준을 기본 20%에서 25%로 상향 적용하라.
+
+**0-B. 보유 종목 불러오기 및 종목별 뉴스 수집**
 discord-reader MCP의 `get_latest_holding` 툴을 호출하여 #holdings 채널의 가장 최근 메시지를 읽어라.
 메시지에서 종목명, 수량, 통화(KRW/USD)를 파싱하라.
 분석 대상 종목(티커)이 명시된 경우 해당 종목만 분석하고, 없으면 보유 전체를 분석하라.
+
+보유 종목 목록이 확정되면 각 종목에 대해 아래 2가지를 수집하라 (**최근 3일 이내** 뉴스만):
+1. **WebSearch** — `"[종목명] stock news last 3 days"` 쿼리로 검색하여 주요 헤드라인 1~2개 추출
+2. **financial-datasets `get_company_news`** — 해당 티커로 호출 (limit=3), 날짜가 3일 이내인 것만 사용
+
+수집한 종목별 뉴스는 이후 STEP 분석에서 리스크·촉매 판단의 근거로 활용하라.
+부정적 뉴스(소송·규제·실적 쇼크·CEO 교체 등)가 있으면 해당 종목 분석 카드에 "⚠ 최근 리스크 이슈" 로 명시하라.
 
 ### STEP 1 — 재무 건전성 점검 (5개년)
 
