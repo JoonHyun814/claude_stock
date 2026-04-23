@@ -103,6 +103,23 @@ async def list_tools() -> list[Tool]:
                 "required": ["symbols"],
             },
         ),
+        Tool(
+            name="get_financials",
+            description=(
+                "종목의 다개년 재무제표를 반환합니다. financial-datasets 대안으로 사용 가능. "
+                "손익계산서(매출·영업이익·순이익), 대차대조표(자산·부채·자기자본), "
+                "현금흐름표(영업CF·설비투자·FCF) — 최근 4개년 연간 데이터. "
+                "ROE, D/E, 매출 CAGR, 영업이익률도 자동 계산. "
+                "API 키 불필요. 미국·한국 주식 모두 지원."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "symbol": {"type": "string", "description": "티커 심볼 (예: AAPL, 005930.KS)"},
+                },
+                "required": ["symbol"],
+            },
+        ),
     ]
 
 
@@ -117,6 +134,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return _get_stock_info(arguments)
         elif name == "get_multi_quote":
             return _get_multi_quote(arguments)
+        elif name == "get_financials":
+            return _get_financials(arguments)
         else:
             return _err(f"알 수 없는 tool: {name}")
     except Exception as e:
@@ -261,6 +280,139 @@ def _get_multi_quote(args: dict) -> list[TextContent]:
 
     header = f"{'티커':<12} {'현재가':>10} {'통화':>4}  {'등락':>8}  시가총액"
     lines = [f"[멀티 시세 — {len(symbols)}종목]\n", header, "-" * 55] + rows
+    return _ok("\n".join(lines))
+
+
+def _get_financials(args: dict) -> list[TextContent]:
+    import pandas as pd
+
+    symbol = args["symbol"].upper()
+    t = yf.Ticker(symbol)
+
+    try:
+        inc = t.financials          # 손익계산서 (행=항목, 열=연도)
+        bal = t.balance_sheet       # 대차대조표
+        cf  = t.cashflow            # 현금흐름표
+    except Exception as e:
+        return _err(f"{symbol} 재무제표 조회 실패: {e}")
+
+    if inc is None or inc.empty:
+        return _err(f"{symbol} 재무제표 없음 (비상장 또는 지원 안 됨)")
+
+    def _v(df, *keys):
+        for k in keys:
+            for idx in df.index:
+                if k.lower() in str(idx).lower():
+                    row = df.loc[idx]
+                    return row
+        return None
+
+    def _num(val):
+        try:
+            v = float(val)
+            return None if pd.isna(v) else v
+        except Exception:
+            return None
+
+    def _fmt(val, decimals=2):
+        if val is None:
+            return "N/A"
+        if abs(val) >= 1e12:
+            return f"{val/1e12:.{decimals}f}T"
+        if abs(val) >= 1e9:
+            return f"{val/1e9:.{decimals}f}B"
+        if abs(val) >= 1e6:
+            return f"{val/1e6:.{decimals}f}M"
+        return f"{val:,.{decimals}f}"
+
+    years = [str(c)[:4] for c in inc.columns]
+
+    # 손익계산서 항목
+    rev_row    = _v(inc, "Total Revenue", "Revenue")
+    op_row     = _v(inc, "Operating Income", "Ebit")
+    net_row    = _v(inc, "Net Income")
+
+    # 대차대조표 항목
+    asset_row  = _v(bal, "Total Assets")
+    liab_row   = _v(bal, "Total Liabilities Net Minority Interest", "Total Liabilities")
+    eq_row     = _v(bal, "Stockholders Equity", "Total Equity Gross Minority Interest", "Common Stock Equity")
+    debt_row   = _v(bal, "Total Debt", "Long Term Debt")
+
+    # 현금흐름 항목
+    ocf_row    = _v(cf, "Operating Cash Flow", "Cash Flow From Continuing Operating Activities")
+    capex_row  = _v(cf, "Capital Expenditure", "Purchase Of Ppe")
+
+    lines = [f"[{symbol}] 다개년 재무제표 (연간, 최근 {len(years)}년)\n"]
+
+    # ── 손익계산서 ─────────────────────────────────────────────
+    lines.append("■ 손익계산서")
+    header = f"  {'항목':<18} " + "  ".join(f"{y:>10}" for y in years)
+    lines.append(header)
+
+    def _row_line(label, row):
+        if row is None:
+            return f"  {label:<18} " + "  ".join(f"{'N/A':>10}" for _ in years)
+        vals = [_fmt(_num(row.iloc[i])) for i in range(len(years))]
+        return f"  {label:<18} " + "  ".join(f"{v:>10}" for v in vals)
+
+    lines.append(_row_line("매출", rev_row))
+    lines.append(_row_line("영업이익", op_row))
+    lines.append(_row_line("순이익", net_row))
+
+    # 영업이익률
+    margin_vals = []
+    for i in range(len(years)):
+        r = _num(rev_row.iloc[i]) if rev_row is not None else None
+        o = _num(op_row.iloc[i])  if op_row  is not None else None
+        margin_vals.append(f"{o/r*100:.1f}%" if (r and o and r != 0) else "N/A")
+    lines.append(f"  {'영업이익률':<18} " + "  ".join(f"{v:>10}" for v in margin_vals))
+
+    # 매출 CAGR (최신 vs 최고 과거)
+    rev_vals = [_num(rev_row.iloc[i]) for i in range(len(years))] if rev_row is not None else []
+    rev_vals = [v for v in rev_vals if v is not None]
+    if len(rev_vals) >= 2:
+        n = len(rev_vals) - 1
+        cagr = ((rev_vals[0] / rev_vals[-1]) ** (1 / n) - 1) * 100
+        lines.append(f"\n  매출 CAGR ({n}년): {cagr:.1f}%")
+
+    # ── 대차대조표 ─────────────────────────────────────────────
+    lines.append("\n■ 대차대조표")
+    lines.append(header)
+    lines.append(_row_line("총자산", asset_row))
+    lines.append(_row_line("총부채", liab_row))
+    lines.append(_row_line("자기자본", eq_row))
+    lines.append(_row_line("총부채(이자)", debt_row))
+
+    # D/E 비율 & ROE
+    de_vals, roe_vals = [], []
+    for i in range(len(years)):
+        eq  = _num(eq_row.iloc[i])   if eq_row   is not None else None
+        lib = _num(liab_row.iloc[i]) if liab_row is not None else None
+        net = _num(net_row.iloc[i])  if net_row  is not None else None
+        de_vals.append(f"{lib/eq:.2f}x"    if (eq and lib and eq != 0) else "N/A")
+        roe_vals.append(f"{net/eq*100:.1f}%" if (eq and net and eq != 0) else "N/A")
+
+    lines.append(f"  {'D/E 비율':<18} " + "  ".join(f"{v:>10}" for v in de_vals))
+    lines.append(f"  {'ROE':<18} " + "  ".join(f"{v:>10}" for v in roe_vals))
+
+    # ── 현금흐름표 ─────────────────────────────────────────────
+    lines.append("\n■ 현금흐름표")
+    lines.append(header)
+    lines.append(_row_line("영업 CF", ocf_row))
+    lines.append(_row_line("설비투자(CapEx)", capex_row))
+
+    # FCF = 영업CF - |CapEx|
+    fcf_vals = []
+    for i in range(len(years)):
+        o = _num(ocf_row.iloc[i])   if ocf_row   is not None else None
+        c = _num(capex_row.iloc[i]) if capex_row is not None else None
+        if o is not None and c is not None:
+            fcf_vals.append(_fmt(o - abs(c)))
+        else:
+            fcf_vals.append("N/A")
+    lines.append(f"  {'FCF':<18} " + "  ".join(f"{v:>10}" for v in fcf_vals))
+
+    lines.append("\n※ financial-datasets 미지원 종목의 대체 데이터 (yfinance, 최근 4개년)")
     return _ok("\n".join(lines))
 
 

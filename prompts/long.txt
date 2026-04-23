@@ -134,8 +134,12 @@ discord-notifier MCP의 `send_stock_alert`로 Discord에 전송하라
 ---
 
 ## 주의 사항
-- KRW 종목(예: 138040.KS, 005930.KS)은 financial-datasets에서 지원되지 않을 수 있다.
-  그 경우 yfinance의 `get_stock_info`로 대체하고 "financial-datasets 미지원" 으로 표시하라.
+- **재무제표 폴백 규칙**: financial-datasets의 `get_income_statement` / `get_balance_sheet` / `get_cash_flow`
+  호출 시 오류가 발생하면, 즉시 yfinance MCP의 `get_financials`로 대체하라.
+  yfinance `get_financials`는 API 키 불필요, 미국·한국 주식 모두 지원, 최근 4개년 데이터 제공.
+  대체 시 분석 카드에 "📦 재무데이터: yfinance (financial-datasets 오류)" 를 표시하라.
+- KRW 종목(예: 138040.KS, 005930.KS)은 financial-datasets에서 지원되지 않으므로
+  처음부터 yfinance `get_financials`를 사용하고 "yfinance 데이터" 로 표시하라.
 - 금(GC=F) 보유분은 DCF 분석 대상에서 제외하고, 현재 시세(USD/oz)와 보유량만 표시하라.
 - ADR 종목(예: KB — KB금융 NYSE ADR)은 원주 종목(티커 .KS)과 중복 분석하지 말고 하나만 분석하라.
 - 데이터 취득 실패 시 해당 항목을 "N/A"로 표시하고 분석을 계속 진행하라.
